@@ -22,7 +22,7 @@ demo:
         if __name__ == '__main__':
             run_tasks()
 
-* ####TaskManager:
+* ####TaskManager
 
 	`task_register` : 
 		

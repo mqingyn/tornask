@@ -27,6 +27,6 @@ demo:
 	`task_register` : 
 		
 			task_name: 任务名称
-			callback： 任务执行方法
-			interval： 间隔时间，秒
-			endtime：  任务结束时间，不给定为永远执行。格式：2014-10-31 16:46:00
+			 callback: 任务执行方法
+			 interval: 间隔时间，秒
+			  endtime: 任务结束时间，不给定为永远执行。格式：2014-10-31 16:46:00

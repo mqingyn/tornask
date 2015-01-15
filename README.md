@@ -21,6 +21,8 @@ demo:
         
         if __name__ == '__main__':
             run_tasks()
+* ####安装
+    pip: `pip install tornask`
 
 * ####TaskManager
 

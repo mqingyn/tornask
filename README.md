@@ -16,8 +16,8 @@ demo:
         
         # 注册任务
         TaskManager.task_register("func", task_func, 10)
-	#TaskManager.task_register("func2", task_func, 20)
-	#TaskManager.task_register("func3", task_func, 30)
+		#TaskManager.task_register("func2", task_func, 20)
+		#TaskManager.task_register("func3", task_func, 30)
         
         if __name__ == '__main__':
             run_tasks()

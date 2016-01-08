@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="tornask",
-    version="1.0",
+    version="1.2",
     description="tornask is a task manager based on tornado",
     long_description="tornask is a task manager based on tornado.",
     keywords='python tornask tornado',
@@ -11,7 +11,7 @@ setup(
     license="BSD",
     packages=find_packages(),
     author_email="mqingyn@gmail.com",
-    requires=['tornado'],
+    requires=['tornado', 'futures'],
     scripts=[],
     include_package_data=True,
     zip_safe=True,

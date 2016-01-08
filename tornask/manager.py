@@ -2,14 +2,15 @@
 # -*- coding: utf-8  -*-
 # Created by mqingyn on 2015/1/15.
 """
-tornado 离线任务管理
+tornado task manager
 """
-import datetime, time
+import datetime, time, functools
 from tornado.options import define, options, parse_command_line
 from tornado.log import app_log
 from tornado.ioloop import PeriodicCallback, IOLoop
 
-define("tasks", default='', help="tasks name list ,eg:task1,task2,task3")
+define("tasks", default=None, help="tasks name list ,eg:task1,task2,task3")
+define("startrun", default=True, type=bool, help="immediately run task when start.")
 
 
 class ArgumentError(Exception):
@@ -31,78 +32,97 @@ class DiligentPeriodicCallback(PeriodicCallback):
             self.io_loop.handle_callback_exception(self.callback)
 
 
-_TASK_POOL = {}
-
-
 class TaskManager(object):
-    @staticmethod
-    def task_register(task_name, callback, interval, endtime=None):
+    def __init__(self):
+        self._task_pool = {}
+
+    def task_register(self, task_name, callback, interval=1, call_at=(), endtime=None):
         """
         任务注册
         :param task_name: 任务名
         :param callback: 任务执行方法
-        :param interval: 间隔时间(单位：second)
-        :param interval: 结束时间，当时间超过这个时间后，任务将自动stop
+        :param interval: 间隔时间(单位：分钟)
+        :param call_at: 每日周期性定时调用时间，如：(8:00,14:00,18:00)
+        :param endtime: 结束日期，格式：2015-01-01 12:12:12
         :return:
         """
-
-        def run_():
-            if endtime and time.time() > time.mktime(time.strptime(endtime, "%Y-%m-%d %H:%M:%S")):
-                TaskManager.task_stop(task_name)
-                app_log.info('PeriodicCallback ==> Stop %s at %s' % (
-                    task_name, datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),))
-                return
-            else:
-                app_log.info('PeriodicCallback ==> Run %s at %s' % (
-                    task_name, datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),))
-                return callback()
-
+        print("task register: %s" % task_name)
         if callable(callback):
             try:
-                _TASK_POOL.update(
+                call = functools.partial(self._run, task_name, callback, call_at, endtime)
+                self._task_pool.update(
                     {
-                        task_name: {'callback': DiligentPeriodicCallback(run_, 1000 * float(interval))}
+                        task_name: DiligentPeriodicCallback(call, 1000 * 60 * float(interval))
                     })
             except Exception, ex:
                 app_log.exception(ex)
-                pass
         else:
-            raise ArgumentError("need a callable func callback. now %s " % (callback,))
+            raise ArgumentError("%s not a function. " % (callback,))
 
-    @staticmethod
-    def task_start(task_name, ioloop=None):
+    def _run(self, task_name, callback, call_at, endtime):
+        now = datetime.datetime.now()
+        if endtime and time.time() > time.mktime(time.strptime(endtime, "%Y-%m-%d %H:%M:%S")):
+            app_log.info('Stop task %s at %s' % (
+                task_name, now,))
+            self.task_stop(task_name)
+            return
+        else:
+            app_log.info('Run task %s at %s' % (
+                task_name, now,))
+            if call_at:
+                task = self._task_pool[task_name]
+                call_list = []
+                for dtstr in call_at:
+                    dt = datetime.datetime.strptime(dtstr, "%H:%M")
+                    run_dt = datetime.datetime(now.year, now.month, now.day, dt.hour, dt.minute, dt.second)
+                    call_list.append(run_dt)
+                    call_list.append(run_dt + datetime.timedelta(1))
 
-        task = _TASK_POOL.get(task_name, None)
+                call_list.sort()
+
+                for c in call_list:
+                    if c >= now:
+                        task.stop()
+                        task.callback_time = (c - now).total_seconds() * 1000
+                        task.start()
+                        break
+
+            return callback()
+
+    def task_start(self, task_name, ioloop=None):
+
+        task = self._task_pool.get(task_name, None)
         if task:
             if ioloop:
-                task['callback'].io_loop = ioloop
-            task['callback'].start()
-            task['callback'].run_once()
+                task.io_loop = ioloop
+            task.start()
+            if options.startrun:
+                task.run_once()
         else:
             raise ConfigError("task %s not found." % task_name)
 
-    @staticmethod
-    def task_stop(task_name):
-        task = _TASK_POOL.get(task_name, None)
+    def task_stop(self, task_name):
+        task = self._task_pool.get(task_name, None)
         if task:
-            task['callback'].stop()
+            task.stop()
         else:
             raise ConfigError("task %s not found." % task_name)
 
-    @staticmethod
-    def start_all(ioloop=None):
-        for k, task in _TASK_POOL.keys():
-            TaskManager.task_start(k, ioloop)
+    def start_all(self, ioloop=None):
+        for k in self._task_pool.keys():
+            self.task_start(k, ioloop)
 
-    @staticmethod
-    def stop_all():
-        for k, task in _TASK_POOL.keys():
-            TaskManager.task_stop(k)
+    def stop_all(self):
+        for k in self._task_pool.keys():
+            self.task_stop(k)
+
+
+taskmgr = TaskManager()
 
 
 def run_tasks():
     """
-    启动定时任务 ,目前未启用
+    start tasks
     :return:
     """
     parse_command_line()
@@ -112,9 +132,8 @@ def run_tasks():
     if t_name:
         t_list = t_name.split(',')
         for t in t_list:
-            TaskManager.task_start(t, loop)
-
-        loop.start()
+            taskmgr.task_start(t, loop)
     else:
-        print 'task not found.'
+        taskmgr.start_all(loop)
 
+    loop.start()

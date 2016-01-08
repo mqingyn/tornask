@@ -4,25 +4,42 @@ tornask是一个简单的，使用 `tornado PeriodicCallback` 开发的作为离
 
 demo:
         
-        from tornask.manager import TaskManager, run_tasks
-        import time
-        
-        def task_func():
-            """
-            任务执行方法，可以是异步方法。
-            :return:
-            """
-            print time.time()
-        
-        # 注册任务
-        TaskManager.task_register("func", task_func, 10)
-		#TaskManager.task_register("func2", task_func, 20)
-		#TaskManager.task_register("func3", task_func, 30)
-        
-        if __name__ == '__main__':
-            run_tasks()
 
-执行： `python demo.py --tasks=func,func2,func3`
+            import time
+            from datetime import datetime
+            from tornask.manager import taskmgr, run_tasks
+            from tornado.concurrent import run_on_executor
+            from tornado.netutil import ThreadedResolver, IOLoop
+            from tornado.httpclient import AsyncHTTPClient
+            from tornado.gen import coroutine
+            
+            
+            class Task(object):
+                def __init__(self):
+                    self.executor = ThreadedResolver().executor
+                    self.io_loop = IOLoop.current()
+            
+                @run_on_executor
+                def task_interval(self):
+                    print 'start at', datetime.now()
+                    time.sleep(3)
+                    print 'end at', datetime.now()
+            
+                @coroutine
+                def task_callat(self):
+                    response = yield AsyncHTTPClient().fetch("http://www.baidu.com")
+                    print response.body
+            
+            
+            if __name__ == '__main__':
+                tasks = Task()
+                taskmgr.task_register("task_at", tasks.task_interval, interval=1)
+                taskmgr.task_register("task_callat", tasks.task_callat, call_at=("23:25", "23:35"))
+                run_tasks()
+
+
+执行： `python demo.py --tasks=task_at,task_callat`  
+
 * ####安装
     pip: `pip install tornask`
 

@@ -1,8 +1,9 @@
 from setuptools import setup, find_packages
+from tornask import __version__
 
 setup(
     name="tornask",
-    version="1.2",
+    version=__version__,
     description="tornask is a task manager based on tornado",
     long_description="tornask is a task manager based on tornado.",
     keywords='python tornask tornado',
